@@ -150,12 +150,12 @@ export default function DetalleVehiculo() {
     if (!vehiculo) return;
 
     if (vehiculo.estado !== 'Listo') {
-      alert('El vehículo debe estar "Listo" para liberarlo');
+      alert('El vehículo debe estar "Listo para recoger" antes de marcarlo como entregado.');
       return;
     }
 
     const confirmado = confirm(
-      `¿Liberar vehículo ${vehiculo.placa} para entrega?`
+      `¿Confirmar que el cliente ya recogió el vehículo ${vehiculo.placa}?`
     );
 
     if (confirmado) {
@@ -163,7 +163,6 @@ export default function DetalleVehiculo() {
       if (actualizado) {
         setVehiculo(actualizado);
 
-        // Reproducir sonido de entrega
         if (estáActivadoSonido()) {
           reproducirSonido('entregado');
         }
@@ -579,12 +578,12 @@ export default function DetalleVehiculo() {
             </button>
           )}
 
-          {vehiculo.estado !== 'Entregado' && proximoEstado && (
+          {vehiculo.estado !== 'Entregado' && proximoEstado && proximoEstado !== 'Entregado' && (
             <button
               onClick={manejarAvanzarEstado}
-              className={`${vehiculo.estado === 'Recibido' ? 'w-full' : 'flex-1'} bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-lg text-sm`}
+              className={`${vehiculo.estado === 'Recibido' ? 'w-full' : 'flex-1'} bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl text-sm`}
             >
-              → {proximoEstado}
+              → {proximoEstado === 'Listo' ? 'Listo para recoger' : proximoEstado}
             </button>
           )}
         </div>
@@ -596,20 +595,21 @@ export default function DetalleVehiculo() {
               onClick={manejarWhatsApp}
               className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded-lg"
             >
-              💬 Notificar por WhatsApp
+              💬 Avisar al cliente por WhatsApp
             </button>
             <button
               onClick={manejarLiberar}
-              className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-4 rounded-lg text-lg"
+              className="w-full text-white font-bold py-4 px-4 rounded-xl text-base"
+              style={{ background: 'linear-gradient(135deg, #059669, #10B981)', boxShadow: '0 4px 14px rgba(5,150,105,0.35)' }}
             >
-              ✓ Liberar para Entrega
+              ✅ El cliente recogió el carro
             </button>
           </>
         )}
 
         {vehiculo.estado === 'Entregado' && (
-          <div className="bg-green-100 text-green-800 text-center font-bold py-3 rounded-lg">
-            ✓ Entregado
+          <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 text-center font-bold py-3 rounded-xl">
+            🎉 Entregado al cliente
           </div>
         )}
       </div>

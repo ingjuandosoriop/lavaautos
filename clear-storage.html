@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Limpiar localStorage</title>
+    <style>
+        body {
+            font-family: Arial;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        button {
+            background: #ef4444;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #dc2626;
+        }
+        .info {
+            background: #fef3c7;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧹 Limpiar localStorage</h1>
+        <div class="info">
+            <p><strong>Esto eliminará:</strong></p>
+            <ul>
+                <li>Todos los vehículos guardados</li>
+                <li>Todas las fotos almacenadas</li>
+                <li>Configuración y sesiones</li>
+            </ul>
+        </div>
+        <button onclick="limpiar()">LIMPIAR LOCALSTORAGE</button>
+        <p id="resultado"></p>
+    </div>
+
+    <script>
+        function limpiar() {
+            localStorage.clear();
+            document.getElementById('resultado').innerHTML = '✅ localStorage limpiado. Ahora puedes usar la app normalmente.';
+            document.querySelector('button').disabled = true;
+        }
+    </script>
+</body>
+</html>

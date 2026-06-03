@@ -4,9 +4,9 @@ import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { QRCodeSVG } from 'qrcode.react';
 import { CapturaFotos } from '@/components/CapturaFotos';
-import { AnimacionEstado } from '@/components/AnimacionEstado';
 import { SelectorTrabajador } from '@/components/SelectorTrabajador';
 import { HistorialPlaca } from '@/components/HistorialPlaca';
+import { ToastContainer, useToast } from '@/components/ui/Toast';
 import {
   crearVehiculo,
   obtenerPrecioServicio,
@@ -16,10 +16,18 @@ import {
 } from '@/lib/vehiculosService';
 import { TipoServicio, SERVICIOS_CATALOGO, Trabajador } from '@/types';
 
-const SERVICIOS: TipoServicio[] = ['Lavado Sencillo', 'Lavado Premium', 'Lavado de Motor'];
+const SERVICIOS: TipoServicio[] = ['Lavado Sencillo', 'Lavado Premium', 'Encerado', 'Lavado de Motor'];
+
+const SERVICIO_ICONS: Record<string, string> = {
+  'Lavado Sencillo': '🧼',
+  'Lavado Premium': '✨',
+  'Encerado': '💎',
+  'Lavado de Motor': '⚙️',
+};
 
 export default function NuevoVehiculo() {
   const router = useRouter();
+  const toast = useToast();
   const [fotos, setFotos] = useState<string[]>([]);
   const [placa, setPlaca] = useState('');
   const [clienteNombre, setClienteNombre] = useState('');
@@ -35,337 +43,346 @@ export default function NuevoVehiculo() {
   const [descuentoInfo, setDescuentoInfo] = useState<any>(null);
   const qrRef = useRef<HTMLDivElement>(null);
 
-  // Cargar trabajadores
   useEffect(() => {
-    const trab = obtenerTrabajadores();
-    setTrabajadores(trab);
+    setTrabajadores(obtenerTrabajadores());
   }, []);
 
-  const manejarCambioServicio = (nuevoServicio: TipoServicio) => {
-    setServicio(nuevoServicio);
-    setPrecioPactado(obtenerPrecioServicio(nuevoServicio));
+  const manejarCambioServicio = (s: TipoServicio) => {
+    setServicio(s);
+    setPrecioPactado(obtenerPrecioServicio(s));
   };
 
-  const manejarCambioPlaca = (nueva: string) => {
-    setPlaca(nueva.toUpperCase());
-    if (nueva.trim().length >= 2) {
-      // Cargar historial y fidelización
-      const hist = obtenerHistorialPorPlaca(nueva.toUpperCase());
-      const desc = calcularDescuentoPorFidelizacion(nueva.toUpperCase());
-      setHistorial(hist);
-      setDescuentoInfo(desc);
+  const manejarCambioPlaca = (val: string) => {
+    const upper = val.toUpperCase();
+    setPlaca(upper);
+    if (upper.trim().length >= 2) {
+      setHistorial(obtenerHistorialPorPlaca(upper));
+      setDescuentoInfo(calcularDescuentoPorFidelizacion(upper));
     } else {
       setHistorial([]);
       setDescuentoInfo(null);
     }
   };
 
-  const manejarGuardar = async (e: React.FormEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const manejarGuardar = async (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    e?.stopPropagation();
 
-    if (!placa.trim() || !clienteNombre.trim() || fotos.length === 0) {
-      alert('Por favor completa: placa, nombre del cliente y al menos una foto');
-      return;
-    }
+    if (!placa.trim()) { toast.error('Ingresa la placa del vehículo'); return; }
+    if (!clienteNombre.trim()) { toast.error('Ingresa el nombre del cliente'); return; }
+    if (fotos.length === 0) { toast.error('Toma al menos una foto de entrada'); return; }
 
     setGuardando(true);
 
     try {
       const nuevo = crearVehiculo({
-        placa,
-        clienteNombre,
-        clienteTelefono,
-        servicio,
-        precioPactado,
-        notas,
-        fotosEntrada: fotos,
-        trabajadorAsignado,
+        placa, clienteNombre, clienteTelefono, servicio, precioPactado, notas,
+        fotosEntrada: fotos, trabajadorAsignado,
       });
-
-      // Mostrar pantalla de éxito con el link
       setLinkGenerado({
         enlace: `${window.location.origin}/seguimiento/${nuevo.tokenSeguimiento}`,
         token: nuevo.tokenSeguimiento,
       });
-    } catch (error) {
-      console.error(error);
-      alert('Error al guardar. Intenta de nuevo.');
+      toast.success('Vehículo registrado correctamente');
+    } catch (err) {
+      console.error(err);
+      toast.error('Error al guardar. Intenta de nuevo.');
       setGuardando(false);
     }
   };
 
-  // Pantalla de éxito
-  if (linkGenerado) {
-    const copiarAlPortapapeles = () => {
-      navigator.clipboard.writeText(linkGenerado.enlace);
-      alert('✅ Enlace copiado al portapapeles');
-    };
+  const copiar = () => {
+    if (!linkGenerado) return;
+    navigator.clipboard.writeText(linkGenerado.enlace);
+    toast.success('Link copiado al portapapeles');
+  };
 
+  // — PANTALLA DE ÉXITO —
+  if (linkGenerado) {
     return (
-      <div className="flex flex-col h-full bg-gradient-to-b from-green-50 to-emerald-50">
+      <div className="flex flex-col h-full" style={{ background: '#F8FAFC' }}>
+        <ToastContainer toasts={toast.toasts} onRemove={toast.removeToast} />
+
         {/* Header */}
-        <div className="bg-gradient-to-r from-green-600 to-emerald-500 text-white p-4 flex items-center gap-3 shadow-lg">
-          <button
-            onClick={() => router.push('/')}
-            className="text-2xl hover:opacity-80"
-          >
+        <div className="bg-white flex-shrink-0 px-4 pt-5 pb-4 flex items-center gap-3"
+          style={{ boxShadow: '0 1px 0 rgba(0,0,0,0.06)' }}>
+          <button onClick={() => router.push('/')} className="w-9 h-9 bg-gray-100 rounded-xl flex items-center justify-center text-base">
             ←
           </button>
-          <h1 className="text-xl font-bold">✅ ¡Vehículo Registrado!</h1>
+          <div>
+            <h1 className="text-base font-bold text-gray-900">Vehículo Registrado</h1>
+            <p className="text-xs text-green-600 font-semibold">✓ Todo listo</p>
+          </div>
         </div>
 
-        {/* Contenido */}
-        <div className="flex-1 overflow-y-auto p-6 flex flex-col items-center justify-center space-y-6">
-          {/* Animación de éxito */}
-          <div className="flex justify-center">
-            <AnimacionEstado estado="Recibido" size="large" />
-          </div>
-
-          {/* Información */}
-          <div className="text-center space-y-2">
-            <h2 className="text-2xl font-bold text-gray-800">{placa}</h2>
-            <p className="text-lg text-gray-700">{clienteNombre}</p>
-            <p className="text-sm text-gray-600">{servicio}</p>
-          </div>
-
-          {/* Código QR */}
-          <div className="bg-white rounded-xl p-6 w-full shadow-md flex flex-col items-center space-y-3">
-            <p className="text-sm font-semibold text-gray-700">Código QR del Cliente</p>
-            <div
-              ref={qrRef}
-              className="bg-white p-3 rounded-lg border-2 border-gray-200"
-            >
-              <QRCodeSVG
-                value={linkGenerado.enlace}
-                level="H"
-                size={200}
-                includeMargin={true}
-              />
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+          {/* Resumen */}
+          <div className="bg-white rounded-2xl p-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-12 h-12 rounded-2xl bg-green-50 flex items-center justify-center text-2xl">✅</div>
+              <div>
+                <p className="text-lg font-bold text-gray-900">{placa}</p>
+                <p className="text-sm text-gray-500">{clienteNombre} · {servicio}</p>
+              </div>
             </div>
-            <p className="text-xs text-gray-600 text-center">
-              Imprime este código en el recibo para que el cliente lo escanee
+            <div className="bg-green-50 rounded-xl p-3 text-center">
+              <p className="text-sm font-bold text-green-700">${precioPactado.toLocaleString('es-CO')} COP</p>
+            </div>
+          </div>
+
+          {/* QR */}
+          <div className="bg-white rounded-2xl p-5" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            <p className="text-sm font-bold text-gray-800 text-center mb-3">Código QR del Cliente</p>
+            <div ref={qrRef} className="flex justify-center">
+              <div className="p-3 bg-white rounded-2xl border-2 border-gray-100">
+                <QRCodeSVG value={linkGenerado.enlace} size={180} level="H" includeMargin={true} />
+              </div>
+            </div>
+            <p className="text-xs text-gray-400 text-center mt-3">
+              El cliente escanea este código para ver el estado en tiempo real
             </p>
-            <button
-              onClick={() => {
-                if (qrRef.current) {
-                  const svg = qrRef.current.querySelector('svg') as SVGSVGElement;
-                  if (svg) {
-                    const serializer = new XMLSerializer();
-                    const svgString = serializer.serializeToString(svg);
-                    const blob = new Blob([svgString], { type: 'image/svg+xml' });
-                    const url = URL.createObjectURL(blob);
-                    const link = document.createElement('a');
-                    link.href = url;
-                    link.download = `QR_${placa}.svg`;
-                    link.click();
-                    URL.revokeObjectURL(url);
-                  }
-                }
-              }}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-2 rounded-lg text-sm"
-            >
-              ⬇️ Descargar QR
-            </button>
           </div>
 
-          {/* Link del cliente */}
-          <div className="bg-white rounded-xl p-4 w-full space-y-3 shadow-md">
-            <p className="text-sm font-semibold text-gray-700 text-center">Enlace para el Cliente</p>
-            <div className="bg-gray-100 rounded-lg p-3 break-all text-xs text-gray-800 font-mono text-center">
-              {linkGenerado.enlace}
+          {/* Link */}
+          <div className="bg-white rounded-2xl p-4 space-y-2" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            <p className="text-sm font-bold text-gray-800 mb-2">Enlace de seguimiento</p>
+            <div className="bg-gray-50 rounded-xl p-3 border border-gray-100">
+              <p className="text-xs font-mono text-blue-600 break-all">{linkGenerado.enlace}</p>
             </div>
             <button
-              onClick={copiarAlPortapapeles}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg"
+              onClick={copiar}
+              className="w-full py-3 rounded-xl text-sm font-bold text-white transition-all"
+              style={{ background: 'linear-gradient(135deg, #2563EB, #06B6D4)' }}
             >
-              📋 Copiar Enlace
+              📋 Copiar Link
             </button>
             <a
               href={linkGenerado.enlace}
               target="_blank"
               rel="noopener noreferrer"
-              className="block w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-3 rounded-lg text-center"
+              className="block w-full py-3 rounded-xl text-sm font-bold text-blue-600 bg-blue-50 text-center"
             >
               👁️ Ver Vista del Cliente
             </a>
           </div>
 
-          {/* Token */}
-          <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 w-full text-center">
-            <p className="text-xs text-blue-700">
-              <strong>ID de seguimiento:</strong> <code className="font-mono">{linkGenerado.token}</code>
-            </p>
+          {/* Acciones */}
+          <div className="space-y-2">
+            <button
+              onClick={() => router.push('/')}
+              className="w-full py-4 rounded-2xl text-base font-bold text-white"
+              style={{ background: 'linear-gradient(135deg, #22C55E, #16A34A)' }}
+            >
+              ✓ Volver al Panel
+            </button>
+            <button
+              onClick={() => {
+                setLinkGenerado(null); setFotos([]); setPlaca(''); setClienteNombre('');
+                setClienteTelefono(''); setServicio('Lavado Sencillo');
+                setPrecioPactado(obtenerPrecioServicio('Lavado Sencillo')); setNotas('');
+              }}
+              className="w-full py-3 rounded-2xl text-sm font-semibold bg-white text-gray-600 border border-gray-200"
+            >
+              ➕ Ingresar Otro Vehículo
+            </button>
           </div>
-        </div>
-
-        {/* Botones finales */}
-        <div className="p-4 bg-white border-t border-gray-200 space-y-2">
-          <button
-            onClick={() => router.push('/')}
-            className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-4 rounded-xl text-lg"
-          >
-            ✓ Volver al Panel
-          </button>
-          <button
-            onClick={() => {
-              setLinkGenerado(null);
-              setFotos([]);
-              setPlaca('');
-              setClienteNombre('');
-              setClienteTelefono('');
-              setServicio('Lavado Sencillo');
-              setPrecioPactado(obtenerPrecioServicio('Lavado Sencillo'));
-              setNotas('');
-            }}
-            className="w-full bg-gray-500 hover:bg-gray-600 text-white font-bold py-4 rounded-xl text-lg"
-          >
-            ➕ Ingresar Otro Vehículo
-          </button>
+          <div className="h-4" />
         </div>
       </div>
     );
   }
 
-  // Formulario
+  // — FORMULARIO —
   return (
-    <div className="flex flex-col h-full bg-white">
+    <div className="flex flex-col h-full" style={{ background: '#F8FAFC' }}>
+      <ToastContainer toasts={toast.toasts} onRemove={toast.removeToast} />
+
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white p-4 flex items-center gap-3 shadow-lg">
-        <button
-          onClick={() => router.push('/')}
-          className="text-2xl hover:opacity-80"
-        >
+      <div className="bg-white flex-shrink-0 px-4 pt-5 pb-4 flex items-center gap-3"
+        style={{ boxShadow: '0 1px 0 rgba(0,0,0,0.06)' }}>
+        <button onClick={() => router.push('/')} className="w-9 h-9 bg-gray-100 rounded-xl flex items-center justify-center text-base">
           ←
         </button>
-        <h1 className="text-xl font-bold">Ingresar Vehículo</h1>
+        <div>
+          <h1 className="text-base font-bold text-gray-900">Ingresar Vehículo</h1>
+          <p className="text-xs text-gray-400">Completa todos los campos</p>
+        </div>
       </div>
 
-      {/* Formulario */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      {/* Contenido */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 pb-6">
+
         {/* Fotos */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Fotos de Entrada *</label>
+        <div className="bg-white rounded-2xl p-4 space-y-3" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          <div className="flex items-center gap-2">
+            <span className="text-base">📷</span>
+            <p className="text-sm font-bold text-gray-800">Fotos de entrada <span className="text-red-400">*</span></p>
+          </div>
           <CapturaFotos fotos={fotos} onFotosCapturadas={setFotos} />
         </div>
 
-        {/* Placa */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Placa *</label>
-          <input
-            type="text"
-            placeholder="ej: ABC123"
-            value={placa}
-            onChange={(e) => manejarCambioPlaca(e.target.value)}
-            className="w-full border-2 border-gray-300 p-3 rounded-lg"
-            required
-          />
+        {/* Datos del vehículo */}
+        <div className="bg-white rounded-2xl p-4 space-y-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-base">🚗</span>
+            <p className="text-sm font-bold text-gray-800">Datos del vehículo</p>
+          </div>
+
+          {/* Placa */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">
+              Placa <span className="text-red-400">*</span>
+            </label>
+            <input
+              type="text"
+              placeholder="ej: ABC123"
+              value={placa}
+              onChange={(e) => manejarCambioPlaca(e.target.value)}
+              className="w-full bg-gray-50 border-2 border-gray-200 p-3.5 rounded-2xl text-gray-900 font-bold tracking-widest text-lg uppercase"
+              maxLength={8}
+            />
+          </div>
+
+          {placa.trim().length >= 2 && (
+            <HistorialPlaca placa={placa} historial={historial} descuentoInfo={descuentoInfo} />
+          )}
+
+          {/* Nombre */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">
+              Nombre del cliente <span className="text-red-400">*</span>
+            </label>
+            <input
+              type="text"
+              placeholder="ej: Juan Pérez"
+              value={clienteNombre}
+              onChange={(e) => setClienteNombre(e.target.value)}
+              className="w-full bg-gray-50 border-2 border-gray-200 p-3.5 rounded-2xl text-gray-900"
+            />
+          </div>
+
+          {/* Teléfono */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">
+              WhatsApp (opcional)
+            </label>
+            <input
+              type="tel"
+              placeholder="ej: 3001234567"
+              value={clienteTelefono}
+              onChange={(e) => setClienteTelefono(e.target.value)}
+              className="w-full bg-gray-50 border-2 border-gray-200 p-3.5 rounded-2xl text-gray-900"
+            />
+          </div>
         </div>
 
-        {/* Historial por placa */}
-        {placa.trim().length >= 2 && (
-          <HistorialPlaca placa={placa} historial={historial} descuentoInfo={descuentoInfo} />
-        )}
+        {/* Servicio */}
+        <div className="bg-white rounded-2xl p-4 space-y-3" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-base">🧼</span>
+            <p className="text-sm font-bold text-gray-800">Servicio <span className="text-red-400">*</span></p>
+          </div>
+          <div className="space-y-2">
+            {SERVICIOS.map((s) => {
+              const active = servicio === s;
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onClick={() => manejarCambioServicio(s)}
+                  className={`w-full p-3.5 rounded-2xl font-semibold text-left flex items-center justify-between transition-all duration-150 ${
+                    active
+                      ? 'border-2 border-blue-500 text-blue-700'
+                      : 'border-2 border-gray-100 bg-gray-50 text-gray-700 hover:border-gray-200'
+                  }`}
+                  style={active ? { background: 'linear-gradient(135deg, #EFF6FF, #DBEAFE)' } : {}}
+                >
+                  <span className="flex items-center gap-2">
+                    <span>{SERVICIO_ICONS[s] ?? '🧼'}</span>
+                    <span className="text-sm">{s}</span>
+                  </span>
+                  <span className={`text-sm font-bold ${active ? 'text-blue-600' : 'text-gray-500'}`}>
+                    ${SERVICIOS_CATALOGO[s].toLocaleString('es-CO')}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
 
-        {/* Nombre del cliente */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Nombre del Cliente *</label>
-          <input
-            type="text"
-            placeholder="ej: Juan Pérez"
-            value={clienteNombre}
-            onChange={(e) => setClienteNombre(e.target.value)}
-            className="w-full border-2 border-gray-300 p-3 rounded-lg"
-            required
-          />
-        </div>
-
-        {/* Teléfono */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Teléfono (WhatsApp)</label>
-          <input
-            type="tel"
-            placeholder="ej: 3001234567"
-            value={clienteTelefono}
-            onChange={(e) => setClienteTelefono(e.target.value)}
-            className="w-full border-2 border-gray-300 p-3 rounded-lg"
-          />
+          {/* Precio */}
+          <div>
+            <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block">
+              Precio pactado (COP)
+            </label>
+            <div className="relative">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-sm">$</span>
+              <input
+                type="number"
+                value={precioPactado}
+                onChange={(e) => setPrecioPactado(parseInt(e.target.value) || 0)}
+                className="w-full bg-gray-50 border-2 border-gray-200 pl-8 pr-4 py-3.5 rounded-2xl text-gray-900 font-bold"
+              />
+            </div>
+          </div>
         </div>
 
         {/* Trabajador */}
         {trabajadores.length > 0 && (
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-3">Trabajador Asignado</label>
+          <div className="bg-white rounded-2xl p-4 space-y-3" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-base">👤</span>
+              <p className="text-sm font-bold text-gray-800">Trabajador asignado</p>
+            </div>
             <SelectorTrabajador
               trabajadores={trabajadores}
               trabajadorActual={trabajadorAsignado}
               onSeleccionar={setTrabajadorAsignado}
-              titulo="¿Quién atiende este auto?"
+              titulo=""
             />
           </div>
         )}
 
-        {/* Servicio */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-3">Servicio *</label>
-          <div className="space-y-2">
-            {SERVICIOS.map((s) => (
-              <button
-                key={s}
-                type="button"
-                onClick={() => manejarCambioServicio(s)}
-                className={`w-full p-3 rounded-lg font-semibold text-left transition-all ${
-                  servicio === s
-                    ? 'bg-blue-600 text-white border-2 border-blue-600'
-                    : 'bg-gray-100 text-gray-800 border-2 border-gray-300'
-                }`}
-              >
-                {s} - ${SERVICIOS_CATALOGO[s].toLocaleString('es-CO')}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Precio */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Precio Pactado *</label>
-          <input
-            type="number"
-            value={precioPactado}
-            onChange={(e) => setPrecioPactado(parseInt(e.target.value) || 0)}
-            className="w-full border-2 border-gray-300 p-3 rounded-lg"
-            required
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            ${precioPactado.toLocaleString('es-CO')}
-          </p>
-        </div>
-
         {/* Notas */}
-        <div>
-          <label className="block text-sm font-semibold text-gray-700 mb-2">Notas (opcional)</label>
+        <div className="bg-white rounded-2xl p-4 space-y-3" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-base">📝</span>
+            <p className="text-sm font-bold text-gray-800">Notas (opcional)</p>
+          </div>
           <textarea
-            placeholder="ej: El cliente menciona un rayón en la puerta trasera"
+            placeholder="ej: Cliente menciona rayón en la puerta trasera..."
             value={notas}
             onChange={(e) => setNotas(e.target.value)}
-            className="w-full border-2 border-gray-300 p-3 rounded-lg"
+            className="w-full bg-gray-50 border-2 border-gray-200 p-3.5 rounded-2xl text-gray-900 text-sm resize-none"
             rows={3}
           />
         </div>
 
-        {/* Espacio para el botón */}
         <div className="h-4" />
       </div>
 
-      {/* Botón guardar (fijo al fondo) */}
-      <div className="p-4 bg-white border-t border-gray-200">
+      {/* Botón guardar fijo */}
+      <div className="flex-shrink-0 px-4 py-4 bg-white" style={{ boxShadow: '0 -1px 0 rgba(0,0,0,0.06)' }}>
         <button
           type="button"
           onClick={manejarGuardar}
           disabled={guardando}
-          className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-bold py-4 px-6 rounded-xl text-lg"
+          className="w-full py-4 rounded-2xl text-base font-bold text-white transition-all duration-200"
+          style={{
+            background: guardando
+              ? '#94A3B8'
+              : 'linear-gradient(135deg, #2563EB 0%, #06B6D4 100%)',
+            boxShadow: guardando ? 'none' : '0 4px 16px rgba(37,99,235,0.3)',
+          }}
         >
-          {guardando ? '⏳ Guardando...' : '✓ Guardar Vehículo'}
+          {guardando ? (
+            <span className="flex items-center justify-center gap-2">
+              <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="white" strokeWidth="4"/>
+                <path className="opacity-75" fill="white" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z"/>
+              </svg>
+              Registrando...
+            </span>
+          ) : '✓ Registrar Vehículo'}
         </button>
       </div>
     </div>

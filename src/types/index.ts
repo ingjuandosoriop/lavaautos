@@ -30,6 +30,7 @@ export interface Vehiculo {
   trabajadorAsignado?: string; // Quién lo lavó/atiende
   trabajadoresParticipantes: string[]; // Todos los que lo tocaron
   clasificacionCliente?: number; // 1-5 estrellas
+  comentarioCliente?: string;   // Reseña escrita por el cliente
   esclavo?: boolean; // Enlazado a otro vehículo (mismo cliente, mismo día)
 }
 

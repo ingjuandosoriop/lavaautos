@@ -3,9 +3,168 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import { Vehiculo, ESTADOS_PIPELINE } from '@/types';
-import { obtenerPorToken } from '@/lib/vehiculosService';
-import { AnimacionEstado } from '@/components/AnimacionEstado';
+import { obtenerPorToken, guardarCalificacion } from '@/lib/vehiculosService';
 
+// ─── Estrella ───────────────────────────────────────────────────
+function Estrella({ llena, hover, onClick, onHover, onLeave, size = 'lg' }: {
+  llena: boolean; hover: boolean;
+  onClick: () => void; onHover: () => void; onLeave: () => void;
+  size?: 'sm' | 'lg';
+}) {
+  const sz = size === 'lg' ? 'text-4xl' : 'text-xl';
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      onMouseEnter={onHover}
+      onMouseLeave={onLeave}
+      onTouchStart={onHover}
+      className={`${sz} select-none ${llena || hover ? '' : 'opacity-30'}`}
+    >
+      ⭐
+    </button>
+  );
+}
+
+// ─── Rating widget ───────────────────────────────────────────────
+function RatingWidget({ onSubmit }: { onSubmit: (estrellas: number, comentario: string) => void }) {
+  const [seleccion, setSeleccion] = useState(0);
+  const [hover, setHover] = useState(0);
+  const [comentario, setComentario] = useState('');
+  const [enviando, setEnviando] = useState(false);
+
+  const LABELS: Record<number, string> = {
+    1: '😞 Muy malo', 2: '😕 Regular', 3: '😐 Aceptable',
+    4: '😊 Bueno', 5: '🤩 ¡Excelente!',
+  };
+
+  const activo = hover || seleccion;
+
+  const handleSubmit = async () => {
+    if (!seleccion) return;
+    setEnviando(true);
+    await new Promise((r) => setTimeout(r, 500));
+    onSubmit(seleccion, comentario);
+  };
+
+  return (
+    <div className="bg-white rounded-3xl p-6 shadow-lg text-center space-y-5">
+      <div>
+        <p className="text-2xl font-bold text-gray-900 mb-1">¿Cómo fue tu experiencia?</p>
+        <p className="text-sm text-gray-500">Tu opinión nos ayuda a mejorar</p>
+      </div>
+
+      {/* Estrellas */}
+      <div className="flex justify-center gap-2">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <Estrella
+            key={n}
+            llena={n <= seleccion}
+            hover={n <= hover}
+            onClick={() => setSeleccion(n)}
+            onHover={() => setHover(n)}
+            onLeave={() => setHover(0)}
+          />
+        ))}
+      </div>
+
+      {/* Label */}
+      <div className="h-6">
+        {activo > 0 && (
+          <p className="text-base font-semibold text-blue-600 animate-fade-in">
+            {LABELS[activo]}
+          </p>
+        )}
+      </div>
+
+      {/* Comentario */}
+      {seleccion > 0 && (
+        <div className="text-left">
+          <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 block">
+            Comentario (opcional)
+          </label>
+          <textarea
+            value={comentario}
+            onChange={(e) => setComentario(e.target.value)}
+            placeholder="Cuéntanos qué te pareció el servicio..."
+            rows={3}
+            className="w-full bg-gray-50 border-2 border-gray-200 rounded-2xl px-4 py-3 text-sm text-gray-800 resize-none"
+          />
+        </div>
+      )}
+
+      {/* Botón */}
+      <button
+        onClick={handleSubmit}
+        disabled={!seleccion || enviando}
+        className="w-full py-4 rounded-2xl text-base font-bold text-white transition-all duration-200"
+        style={{
+          background: !seleccion || enviando
+            ? '#CBD5E1'
+            : 'linear-gradient(135deg, #2563EB 0%, #06B6D4 100%)',
+          boxShadow: !seleccion || enviando ? 'none' : '0 4px 16px rgba(37,99,235,0.3)',
+        }}
+      >
+        {enviando ? (
+          <span className="flex items-center justify-center gap-2">
+            <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="white" strokeWidth="4"/>
+              <path className="opacity-75" fill="white" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z"/>
+            </svg>
+            Enviando...
+          </span>
+        ) : 'Enviar calificación'}
+      </button>
+    </div>
+  );
+}
+
+// ─── Rating ya enviado ───────────────────────────────────────────
+function RatingMostrado({ estrellas, comentario }: { estrellas: number; comentario?: string }) {
+  return (
+    <div className="bg-white rounded-3xl p-5 shadow-lg text-center space-y-3">
+      <p className="text-lg font-bold text-gray-900">Tu calificación</p>
+      <div className="flex justify-center gap-1">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <span key={n} className={`text-2xl ${n <= estrellas ? '' : 'opacity-20'}`}>⭐</span>
+        ))}
+      </div>
+      <p className="text-sm font-semibold text-blue-600">{estrellas}/5 estrellas</p>
+      {comentario && (
+        <div className="bg-gray-50 rounded-xl px-4 py-3 text-left">
+          <p className="text-sm text-gray-700 italic">"{comentario}"</p>
+        </div>
+      )}
+      <p className="text-xs text-gray-400">¡Gracias por tu opinión! 🙏</p>
+    </div>
+  );
+}
+
+// ─── Timeline step ───────────────────────────────────────────────
+function TimelineStep({ estado, fecha, isActive, isLast }: {
+  estado: string; fecha: string; isActive: boolean; isLast: boolean;
+}) {
+  return (
+    <div className="flex gap-3">
+      <div className="flex flex-col items-center">
+        <div className={`w-3 h-3 rounded-full mt-1 ring-4 transition-all ${
+          isActive
+            ? 'bg-blue-500 ring-blue-100 scale-125'
+            : 'bg-gray-300 ring-gray-100'
+        }`} />
+        {!isLast && <div className="w-0.5 h-10 bg-gray-200 my-1" />}
+      </div>
+      <div className="flex-1 pb-3">
+        <p className={`text-sm font-bold ${isActive ? 'text-blue-700' : 'text-gray-700'}`}>{estado}</p>
+        <p className="text-xs text-gray-400 mt-0.5">
+          {new Date(fecha).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─── Página principal ────────────────────────────────────────────
 export default function SeguimientoCliente() {
   const params = useParams();
   const token = params.token as string;
@@ -13,280 +172,204 @@ export default function SeguimientoCliente() {
   const [vehiculo, setVehiculo] = useState<Vehiculo | null>(null);
   const [cargando, setCargando] = useState(true);
   const [noEncontrado, setNoEncontrado] = useState(false);
+  const [calificado, setCalificado] = useState(false);
 
   useEffect(() => {
     const cargar = () => {
       const v = obtenerPorToken(token);
-      if (!v) {
-        setNoEncontrado(true);
-      } else {
-        setVehiculo(v);
-      }
+      if (!v) { setNoEncontrado(true); }
+      else { setVehiculo(v); }
       setCargando(false);
     };
-
     cargar();
-
-    // Recargar cada 2 segundos (tiempo real)
-    const intervalo = setInterval(cargar, 2000);
-    return () => clearInterval(intervalo);
+    const iv = setInterval(cargar, 2000);
+    return () => clearInterval(iv);
   }, [token]);
 
-  const obtenerColorEstado = (estado: string) => {
-    const colores: Record<string, string> = {
-      'Recibido': 'from-blue-400 to-blue-600',
-      'Lavando': 'from-cyan-400 to-cyan-600',
-      'Enjuagando': 'from-sky-400 to-sky-600',
-      'Secando': 'from-amber-400 to-amber-600',
-      'Encerando': 'from-purple-400 to-purple-600',
-      'Listo': 'from-green-400 to-green-600',
-      'Entregado': 'from-emerald-400 to-emerald-600',
-    };
-    return colores[estado] || 'from-gray-400 to-gray-600';
+  const manejarCalificacion = (estrellas: number, comentario: string) => {
+    if (!vehiculo) return;
+    guardarCalificacion(vehiculo.id, estrellas, comentario);
+    setVehiculo((prev) => prev
+      ? { ...prev, clasificacionCliente: estrellas, comentarioCliente: comentario || undefined }
+      : prev
+    );
+    setCalificado(true);
   };
 
-  const obtenerPorcentajeProgreso = () => {
-    if (!vehiculo) return 0;
-    const indice = ESTADOS_PIPELINE.indexOf(vehiculo.estado);
-    if (indice === -1) return 100; // Entregado
-    return ((indice + 1) / ESTADOS_PIPELINE.length) * 100;
-  };
-
-  const obtenerEmojiEstado = (estado: string) => {
-    const emojis: Record<string, string> = {
-      'Recibido': '📋',
-      'Lavando': '🚿',
-      'Enjuagando': '💦',
-      'Secando': '💨',
-      'Encerando': '✨',
-      'Listo': '✅',
-      'Entregado': '🎉',
-    };
-    return emojis[estado] || '🚗';
-  };
-
+  // ── Cargando ──
   if (cargando) {
     return (
-      <div className="flex flex-col h-full bg-gradient-to-b from-blue-50 to-cyan-50 items-center justify-center">
-        <div className="text-center">
-          <div className="text-4xl mb-4">🚗</div>
-          <p className="text-gray-600 font-semibold">Cargando tu vehículo...</p>
-        </div>
+      <div className="flex flex-col h-full items-center justify-center" style={{ background: 'linear-gradient(160deg, #EFF6FF, #E0F2FE)' }}>
+        <svg className="animate-spin h-10 w-10 text-blue-500 mb-4" viewBox="0 0 24 24" fill="none">
+          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.4 0 0 5.4 0 12h4z"/>
+        </svg>
+        <p className="text-blue-600 font-semibold text-sm">Cargando tu vehículo...</p>
       </div>
     );
   }
 
+  // ── No encontrado ──
   if (noEncontrado || !vehiculo) {
     return (
-      <div className="flex flex-col h-full bg-gradient-to-b from-red-50 to-pink-50">
-        <div className="bg-red-500 text-white p-6 text-center">
-          <h1 className="text-2xl font-bold">⚠️ No Encontrado</h1>
-        </div>
-        <div className="flex-1 flex items-center justify-center px-6">
-          <div className="text-center">
-            <p className="text-gray-700 mb-4">Este enlace no es válido o ha expirado.</p>
-            <p className="text-sm text-gray-600">Contacta al lavadero para obtener un nuevo enlace.</p>
-          </div>
-        </div>
+      <div className="flex flex-col h-full items-center justify-center p-6 text-center" style={{ background: '#F8FAFC' }}>
+        <div className="text-5xl mb-4">🔍</div>
+        <h1 className="text-xl font-bold text-gray-900 mb-2">Enlace no válido</h1>
+        <p className="text-sm text-gray-500">Este enlace no existe o ha expirado. Contacta al lavadero.</p>
       </div>
     );
   }
 
-  const porcentaje = obtenerPorcentajeProgreso();
+  const entregado = vehiculo.estado === 'Entregado';
+  const listo = vehiculo.estado === 'Listo';
+  const yaCalificado = vehiculo.clasificacionCliente != null;
+
+  const estadoConfig: Record<string, { bg: string; icon: string; label: string }> = {
+    Recibido:   { bg: 'linear-gradient(135deg,#FCD34D,#F59E0B)', icon: '📋', label: 'Recibido' },
+    Lavando:    { bg: 'linear-gradient(135deg,#60A5FA,#2563EB)', icon: '🧼', label: 'Lavando' },
+    Enjuagando: { bg: 'linear-gradient(135deg,#38BDF8,#0369A1)', icon: '💦', label: 'Enjuagando' },
+    Secando:    { bg: 'linear-gradient(135deg,#FDE68A,#D97706)', icon: '💨', label: 'Secando' },
+    Encerando:  { bg: 'linear-gradient(135deg,#C4B5FD,#7C3AED)', icon: '✨', label: 'Encerando' },
+    Listo:      { bg: 'linear-gradient(135deg,#34D399,#059669)', icon: '✅', label: '¡Listo para recoger!' },
+    Entregado:  { bg: 'linear-gradient(135deg,#6EE7B7,#10B981)', icon: '🎉', label: 'Entregado' },
+  };
+
+  const cfg = estadoConfig[vehiculo.estado] ?? estadoConfig['Recibido'];
+  const idx = ESTADOS_PIPELINE.indexOf(vehiculo.estado);
+  const pct = entregado ? 100 : Math.round(((idx + 1) / ESTADOS_PIPELINE.length) * 100);
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-b from-blue-50 to-cyan-50 overflow-y-auto">
+    <div className="flex flex-col h-full overflow-y-auto" style={{ background: '#F8FAFC' }}>
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-cyan-500 text-white p-6 text-center shadow-lg sticky top-0 z-10">
-        <h1 className="text-2xl font-bold mb-2">🚗 Tu Vehículo</h1>
-        <p className="text-xl font-bold text-blue-100">{vehiculo.placa}</p>
+      <div
+        className="flex-shrink-0 px-5 pt-8 pb-6 text-white text-center"
+        style={{ background: cfg.bg }}
+      >
+        <div className="text-6xl mb-3">{cfg.icon}</div>
+        <p className="text-2xl font-bold mb-1">{cfg.label}</p>
+        <p className="text-white/80 text-base font-semibold">{vehiculo.placa}</p>
+        <p className="text-white/60 text-sm mt-0.5">{vehiculo.clienteNombre}</p>
       </div>
 
-      {/* Contenido */}
-      <div className="flex-1 p-4 space-y-6 pb-8">
-        {/* Card principal: Estado actual con animación */}
-        <div className={`bg-gradient-to-br ${obtenerColorEstado(vehiculo.estado)} rounded-2xl p-8 shadow-xl flex flex-col items-center justify-center min-h-48`}>
-          <div className="text-white">
-            <AnimacionEstado estado={vehiculo.estado} size="large" />
-          </div>
-        </div>
+      <div className="flex-1 px-4 py-5 space-y-4 pb-8">
 
-        {/* Barra de progreso */}
-        <div className="bg-white rounded-xl p-4 shadow-md">
+        {/* Barra progreso */}
+        <div className="bg-white rounded-2xl p-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
           <div className="flex justify-between items-center mb-2">
-            <h3 className="font-bold text-gray-800">Progreso</h3>
-            <span className="text-sm font-semibold text-cyan-600">{Math.round(porcentaje)}%</span>
+            <span className="text-sm font-bold text-gray-800">Progreso</span>
+            <span className="text-sm font-bold text-blue-600">{pct}%</span>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+          <div className="w-full bg-gray-100 rounded-full h-2.5 overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-cyan-400 to-blue-600 transition-all duration-500"
-              style={{ width: `${porcentaje}%` }}
+              className="h-full rounded-full transition-all duration-700"
+              style={{ width: `${pct}%`, background: cfg.bg }}
             />
           </div>
-          {/* Mini timeline */}
-          <div className="flex justify-between mt-4 gap-1">
-            {ESTADOS_PIPELINE.map((e, idx) => {
-              const estadoActualIdx = ESTADOS_PIPELINE.indexOf(vehiculo.estado);
-              const isCompleted = idx <= estadoActualIdx;
+          {/* Mini pasos */}
+          <div className="flex gap-1.5 mt-3">
+            {ESTADOS_PIPELINE.map((e, i) => {
+              const done = idx >= i;
+              const current = idx === i;
               return (
                 <div
                   key={e}
-                  className={`flex-1 aspect-square rounded-lg flex items-center justify-center text-xs font-bold transition-all ${
-                    isCompleted
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-gray-300 text-gray-600'
-                  }`}
-                >
-                  {e.split(' ')[0].slice(0, 2)}
-                </div>
+                  className={`flex-1 h-1.5 rounded-full transition-all duration-300 ${
+                    done ? 'opacity-100' : 'bg-gray-200'
+                  } ${current ? 'scale-y-150' : ''}`}
+                  style={done ? { background: cfg.bg } : {}}
+                />
               );
             })}
           </div>
         </div>
 
-        {/* Timeline visual */}
-        <div className="bg-white rounded-xl p-6 shadow-md">
-          <h3 className="font-bold text-gray-800 mb-4">Historial</h3>
-          <div className="space-y-4">
-            {vehiculo.historicoEstados.map((h, i) => {
-              const esUltimo = i === vehiculo.historicoEstados.length - 1;
-              return (
-                <div key={i} className="flex gap-4">
-                  {/* Línea vertical */}
-                  <div className="flex flex-col items-center">
-                    <div className={`w-4 h-4 rounded-full ${esUltimo ? 'bg-blue-600' : 'bg-gray-400'} ring-4 ${esUltimo ? 'ring-blue-200' : 'ring-gray-200'}`} />
-                    {!esUltimo && <div className="w-1 h-12 bg-gray-300 my-2" />}
-                  </div>
-                  {/* Contenido */}
-                  <div className="flex-1 pt-1">
-                    <p className="font-bold text-gray-800">{h.estado}</p>
-                    <p className="text-sm text-gray-600">
-                      {new Date(h.fecha).toLocaleString('es-CO', {
-                        dateStyle: 'short',
-                        timeStyle: 'short',
-                      })}
-                    </p>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Información del vehículo */}
-        <div className="bg-white rounded-xl p-4 shadow-md">
-          <h3 className="font-bold text-gray-800 mb-4">Información</h3>
-          <div className="space-y-3">
-            <div className="flex justify-between border-b pb-3">
-              <span className="text-gray-600">Cliente</span>
-              <span className="font-semibold">{vehiculo.clienteNombre}</span>
+        {/* Info servicio */}
+        <div className="bg-white rounded-2xl p-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-xs text-gray-500 font-medium">Servicio</p>
+              <p className="text-sm font-bold text-gray-900 mt-0.5">{vehiculo.servicio}</p>
             </div>
-            <div className="flex justify-between border-b pb-3">
-              <span className="text-gray-600">Servicio</span>
-              <span className="font-semibold">{vehiculo.servicio}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Precio</span>
-              <span className="font-bold text-lg text-green-600">
+            <div className="text-right">
+              <p className="text-xs text-gray-500 font-medium">Precio</p>
+              <p className="text-base font-bold text-green-600 mt-0.5">
                 ${vehiculo.precioPactado.toLocaleString('es-CO')}
-              </span>
+              </p>
             </div>
           </div>
         </div>
 
-        {/* Comparativa antes/después */}
+        {/* Banner Listo para recoger */}
+        {listo && (
+          <div
+            className="rounded-2xl p-5 text-white text-center"
+            style={{ background: 'linear-gradient(135deg, #10B981, #059669)', boxShadow: '0 4px 16px rgba(16,185,129,0.35)' }}
+          >
+            <p className="text-3xl mb-2">🎉</p>
+            <p className="text-xl font-bold">¡Tu vehículo está listo!</p>
+            <p className="text-sm text-green-100 mt-1">Acércate al lavadero para recogerlo</p>
+          </div>
+        )}
+
+        {/* Fotos antes/después */}
         {vehiculo.fotosEntrada.length > 0 && (
-          <div className="bg-white rounded-xl p-4 shadow-md">
-            <h3 className="font-bold text-gray-800 mb-4">📸 Tu Vehículo</h3>
-
+          <div className="bg-white rounded-2xl p-4 space-y-3" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+            <p className="text-sm font-bold text-gray-800">📸 Fotos del vehículo</p>
             {vehiculo.fotosSalida.length > 0 ? (
-              // Mostrar comparativa lado a lado
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-3">
-                  {/* Entrada */}
-                  <div>
-                    <p className="text-xs font-semibold text-gray-600 mb-2 text-center">
-                      ❌ Antes (Entrada)
-                    </p>
-                    <div className="grid gap-2">
-                      {vehiculo.fotosEntrada.map((foto, i) => (
-                        <img
-                          key={i}
-                          src={foto}
-                          alt={`Antes ${i + 1}`}
-                          className="w-full h-28 object-cover rounded-lg border-2 border-gray-300"
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Salida */}
-                  <div>
-                    <p className="text-xs font-semibold text-green-600 mb-2 text-center">
-                      ✅ Después (Salida)
-                    </p>
-                    <div className="grid gap-2">
-                      {vehiculo.fotosSalida.map((foto, i) => (
-                        <img
-                          key={i}
-                          src={foto}
-                          alt={`Después ${i + 1}`}
-                          className="w-full h-28 object-cover rounded-lg border-2 border-green-300"
-                        />
-                      ))}
-                    </div>
-                  </div>
-                </div>
-                <p className="text-xs text-center text-gray-600 pt-2 border-t">
-                  Puedes comparar antes y después del lavado
-                </p>
-              </div>
-            ) : (
-              // Solo entrada (salida aún no disponible)
-              <div className="space-y-3">
-                <p className="text-xs text-gray-600 text-center">
-                  Fotos de cómo ingresó tu vehículo
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  {vehiculo.fotosEntrada.map((foto, i) => (
-                    <img
-                      key={i}
-                      src={foto}
-                      alt={`Entrada ${i + 1}`}
-                      className="w-full h-32 object-cover rounded-lg"
-                    />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-xs font-semibold text-gray-400 text-center mb-2">Antes</p>
+                  {vehiculo.fotosEntrada.map((f, i) => (
+                    <img key={i} src={f} className="w-full h-28 object-cover rounded-xl mb-2" alt="" />
                   ))}
                 </div>
-                <div className="bg-blue-50 border-l-4 border-blue-400 p-3 rounded">
-                  <p className="text-xs text-blue-700">
-                    Las fotos de salida se mostrarán cuando esté listo
-                  </p>
+                <div>
+                  <p className="text-xs font-semibold text-green-500 text-center mb-2">Después ✨</p>
+                  {vehiculo.fotosSalida.map((f, i) => (
+                    <img key={i} src={f} className="w-full h-28 object-cover rounded-xl mb-2 ring-2 ring-green-300" alt="" />
+                  ))}
                 </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-2">
+                {vehiculo.fotosEntrada.map((f, i) => (
+                  <img key={i} src={f} className="w-full h-28 object-cover rounded-xl" alt="" />
+                ))}
               </div>
             )}
           </div>
         )}
 
-        {/* Estado final */}
-        {vehiculo.estado === 'Entregado' && (
-          <div className="bg-green-50 border-2 border-green-300 rounded-xl p-4 text-center">
-            <p className="text-lg font-bold text-green-700">✅ ¡Gracias por tu confianza!</p>
-            <p className="text-sm text-green-600 mt-2">Tu vehículo ha sido entregado exitosamente.</p>
-          </div>
+        {/* Timeline */}
+        <div className="bg-white rounded-2xl p-4" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+          <p className="text-sm font-bold text-gray-800 mb-4">Historial de estados</p>
+          {vehiculo.historicoEstados.map((h, i) => (
+            <TimelineStep
+              key={i}
+              estado={h.estado}
+              fecha={h.fecha}
+              isActive={i === vehiculo.historicoEstados.length - 1}
+              isLast={i === vehiculo.historicoEstados.length - 1}
+            />
+          ))}
+        </div>
+
+        {/* CALIFICACIÓN — solo después de Entregado */}
+        {entregado && (
+          yaCalificado ? (
+            <RatingMostrado
+              estrellas={vehiculo.clasificacionCliente!}
+              comentario={vehiculo.comentarioCliente}
+            />
+          ) : (
+            <RatingWidget onSubmit={manejarCalificacion} />
+          )
         )}
 
-        {vehiculo.estado === 'Listo' && (
-          <div className="bg-blue-50 border-2 border-blue-300 rounded-xl p-4 text-center">
-            <p className="text-lg font-bold text-blue-700">🎉 ¡Tu vehículo está listo!</p>
-            <p className="text-sm text-blue-600 mt-2">Acércate al lavadero para recogerlo.</p>
-            {vehiculo.clienteTelefono && (
-              <a
-                href={`https://wa.me/${vehiculo.clienteTelefono.replace(/\D/g, '')}?text=Hola,%20mi%20vehículo%20${vehiculo.placa}%20está%20listo%20para%20recoger.`}
-                className="inline-block mt-3 bg-green-600 text-white font-bold px-4 py-2 rounded-lg"
-              >
-                💬 Contáctanos por WhatsApp
-              </a>
-            )}
+        {/* Agradecimiento final */}
+        {entregado && (
+          <div className="text-center py-2">
+            <p className="text-sm text-gray-400">¡Gracias por usar Lavaautos! 🚗✨</p>
           </div>
         )}
       </div>

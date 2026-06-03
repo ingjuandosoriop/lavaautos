@@ -401,6 +401,53 @@ export function agregarTrabajador(nombre: string): Trabajador {
   return nuevo;
 }
 
+// ===== CALIFICACIONES =====
+export function guardarCalificacion(id: string, estrellas: number, comentario?: string): Vehiculo | null {
+  const todos = cargar();
+  const vehiculo = todos.find((v) => v.id === id);
+  if (!vehiculo) return null;
+
+  vehiculo.clasificacionCliente = Math.min(5, Math.max(1, Math.round(estrellas)));
+  if (comentario?.trim()) vehiculo.comentarioCliente = comentario.trim();
+  vehiculo.actualizadoEn = new Date().toISOString();
+  guardar(todos);
+  return vehiculo;
+}
+
+export function obtenerResumenCalificaciones(): {
+  promedio: number;
+  total: number;
+  distribucion: Record<number, number>;
+  recientes: { placa: string; estrellas: number; comentario?: string; fecha: string }[];
+} {
+  const todos = cargar().filter((v) => v.clasificacionCliente != null);
+  const total = todos.length;
+
+  if (total === 0) {
+    return { promedio: 0, total: 0, distribucion: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 }, recientes: [] };
+  }
+
+  const distribucion: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+  let suma = 0;
+  for (const v of todos) {
+    const e = v.clasificacionCliente!;
+    suma += e;
+    distribucion[e] = (distribucion[e] || 0) + 1;
+  }
+
+  const recientes = [...todos]
+    .sort((a, b) => new Date(b.actualizadoEn).getTime() - new Date(a.actualizadoEn).getTime())
+    .slice(0, 5)
+    .map((v) => ({
+      placa: v.placa,
+      estrellas: v.clasificacionCliente!,
+      comentario: v.comentarioCliente,
+      fecha: v.actualizadoEn,
+    }));
+
+  return { promedio: suma / total, total, distribucion, recientes };
+}
+
 // ===== ESTADÍSTICAS =====
 export function obtenerEstadisticas(dias: number = 1): {
   totalHoy: number;
