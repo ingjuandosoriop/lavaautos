@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
+import { QRCodeSVG } from 'qrcode.react';
 import { Vehiculo, ESTADOS_PIPELINE, Trabajador } from '@/types';
 import {
   obtenerPorId,
@@ -33,6 +34,8 @@ export default function DetalleVehiculo() {
   const [mostrarTransferencia, setMostrarTransferencia] = useState(false);
   const [fotosEdicion, setFotosEdicion] = useState<string[]>([]);
   const [tiempos, setTiempos] = useState<Record<string, number>>({});
+  const [mostrarLink, setMostrarLink] = useState(false);
+  const qrRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Cargar trabajadores y tiempos
@@ -188,6 +191,24 @@ export default function DetalleVehiculo() {
     return ((indice + 1) / ESTADOS_PIPELINE.length) * 100;
   };
 
+  const copiarLink = () => {
+    if (!vehiculo) return;
+    const link = `${window.location.origin}/seguimiento/${vehiculo.tokenSeguimiento}`;
+    navigator.clipboard.writeText(link);
+    alert('✅ Link copiado al portapapeles');
+  };
+
+  const descargarQR = () => {
+    if (!qrRef.current) return;
+    const canvas = qrRef.current.querySelector('canvas');
+    if (canvas) {
+      const link = document.createElement('a');
+      link.href = canvas.toDataURL('image/png');
+      link.download = `qr_${vehiculo?.placa}.png`;
+      link.click();
+    }
+  };
+
   if (cargando) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -278,6 +299,78 @@ export default function DetalleVehiculo() {
             tiemposConfig={tiempos as any}
           />
         )}
+
+        {/* Link de Seguimiento del Cliente */}
+        <div className="bg-gradient-to-br from-purple-50 to-blue-50 border-2 border-purple-200 rounded-lg p-4 space-y-3">
+          <h3 className="font-bold text-gray-800 flex items-center gap-2">
+            🔗 Link del Cliente
+          </h3>
+
+          {!mostrarLink ? (
+            <button
+              type="button"
+              onClick={() => setMostrarLink(true)}
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 rounded-lg"
+            >
+              👁️ Ver Link de Seguimiento
+            </button>
+          ) : (
+            <div className="space-y-3">
+              {/* QR */}
+              <div className="flex justify-center bg-white p-3 rounded-lg border-2 border-purple-200">
+                <div ref={qrRef}>
+                  <QRCodeSVG
+                    value={`${window.location.origin}/seguimiento/${vehiculo.tokenSeguimiento}`}
+                    size={150}
+                    level="H"
+                    includeMargin={true}
+                  />
+                </div>
+              </div>
+
+              {/* Link URL */}
+              <div className="bg-white p-3 rounded-lg border-2 border-purple-200">
+                <p className="text-xs text-gray-600 mb-2">URL de Seguimiento:</p>
+                <p className="text-xs font-mono break-all text-blue-600">
+                  {`${window.location.origin}/seguimiento/${vehiculo.tokenSeguimiento}`}
+                </p>
+              </div>
+
+              {/* Token */}
+              <div className="bg-white p-3 rounded-lg border-2 border-purple-200">
+                <p className="text-xs text-gray-600 mb-2">Token:</p>
+                <p className="text-xs font-mono break-all text-gray-800">
+                  {vehiculo.tokenSeguimiento}
+                </p>
+              </div>
+
+              {/* Botones */}
+              <div className="space-y-2">
+                <button
+                  type="button"
+                  onClick={copiarLink}
+                  className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg text-sm"
+                >
+                  📋 Copiar Link
+                </button>
+                <button
+                  type="button"
+                  onClick={descargarQR}
+                  className="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 rounded-lg text-sm"
+                >
+                  ⬇️ Descargar QR
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMostrarLink(false)}
+                  className="w-full bg-gray-400 hover:bg-gray-500 text-white font-bold py-2 rounded-lg text-sm"
+                >
+                  Cerrar
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Información del vehículo */}
         <div className="bg-white border-2 border-gray-200 rounded-lg p-4 space-y-3">
