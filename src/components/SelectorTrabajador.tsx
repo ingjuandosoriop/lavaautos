@@ -22,6 +22,7 @@ export function SelectorTrabajador({
         {trabajadores.map((t) => (
           <button
             key={t.id}
+            type="button"
             onClick={() => onSeleccionar(t.id)}
             className={`w-full p-3 rounded-lg font-semibold text-left transition-all ${
               trabajadorActual === t.id
