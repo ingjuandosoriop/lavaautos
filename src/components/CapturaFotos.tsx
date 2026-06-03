@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useEffect } from 'react';
+import { comprimirImagen } from '@/lib/compresion';
 
 interface CapturafotosProps {
   fotos: string[];
@@ -10,15 +11,17 @@ interface CapturafotosProps {
 export function CapturaFotos({ fotos, onFotosCapturadas }: CapturafotosProps) {
   const inputRef = useRef<HTMLInputElement>(null);
 
-  const manejarCaptura = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const manejarCaptura = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const archivos = e.currentTarget.files;
     if (archivos) {
       Array.from(archivos).forEach((archivo) => {
         const reader = new FileReader();
-        reader.onloadend = () => {
+        reader.onloadend = async () => {
           const base64 = reader.result as string;
+          // Comprimir imagen antes de guardar
+          const comprimida = await comprimirImagen(base64);
           // Actualizar fotos de forma asíncrona para evitar setState durante render
-          onFotosCapturadas([...fotos, base64]);
+          onFotosCapturadas([...fotos, comprimida]);
         };
         reader.readAsDataURL(archivo);
       });
