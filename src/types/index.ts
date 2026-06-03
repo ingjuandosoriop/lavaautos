@@ -41,6 +41,7 @@ export interface HistorialEstado {
 export const SERVICIOS_CATALOGO: Record<TipoServicio, number> = {
   'Lavado Sencillo': 25000,
   'Lavado Premium': 45000,
+  'Encerado': 35000,
   'Lavado de Motor': 50000,
 };
 
