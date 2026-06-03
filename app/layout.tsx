@@ -19,9 +19,17 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="es" className={`${geistSans.variable} h-full antialiased`}>
-      <body className="min-h-full flex justify-center items-start bg-gray-100 p-4">
-        {/* Simula pantalla de celular */}
-        <div className="w-full max-w-sm h-screen max-h-screen bg-white shadow-2xl rounded-3xl overflow-hidden flex flex-col">
+      {/*
+        En móvil (< sm): pantalla completa, sin wrapper, sin bordes redondeados
+        En escritorio (>= sm): simula celular centrado con sombra y esquinas redondeadas
+      */}
+      <body className="h-full bg-white sm:bg-slate-200 sm:flex sm:justify-center sm:items-start sm:p-4">
+        <div className="
+          w-full flex flex-col bg-white
+          h-[100dvh]
+          sm:max-w-sm sm:h-screen sm:max-h-screen
+          sm:shadow-2xl sm:rounded-3xl sm:overflow-hidden
+        ">
           {children}
         </div>
       </body>
