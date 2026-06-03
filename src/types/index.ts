@@ -76,6 +76,7 @@ export const CONFIG_DEFAULT: ConfiguracionLavaauto = {
   tiempoEstimado: {
     'Lavado Sencillo': 20,
     'Lavado Premium': 40,
+    'Encerado': 25,
     'Lavado de Motor': 30,
   },
   fidelizacion: {
