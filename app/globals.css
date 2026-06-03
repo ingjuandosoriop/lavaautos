@@ -28,6 +28,14 @@ html, body {
   height: 100%;
   margin: 0;
   padding: 0;
+  /* Ancla la app al viewport — impide scroll externo en móvil */
+  overflow: hidden;
+  overscroll-behavior: none;
+  position: fixed;
+  width: 100%;
+  /* Área segura para notch/island en iPhone */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
 }
 
 body {

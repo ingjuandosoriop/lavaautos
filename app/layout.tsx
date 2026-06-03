@@ -12,6 +12,14 @@ export const metadata: Metadata = {
   description: "App de gestión para lavadero de autos",
 };
 
+export const viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
