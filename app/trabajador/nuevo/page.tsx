@@ -62,6 +62,7 @@ export default function NuevoVehiculo() {
 
   const manejarGuardar = async (e: React.FormEvent) => {
     e.preventDefault();
+    e.stopPropagation();
 
     if (!placa.trim() || !clienteNombre.trim() || fotos.length === 0) {
       alert('Por favor completa: placa, nombre del cliente y al menos una foto');
@@ -241,7 +242,7 @@ export default function NuevoVehiculo() {
       </div>
 
       {/* Formulario */}
-      <form onSubmit={manejarGuardar} className="flex-1 overflow-y-auto p-4 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {/* Fotos */}
         <div>
           <label className="block text-sm font-semibold text-gray-700 mb-2">Fotos de Entrada *</label>
@@ -354,12 +355,12 @@ export default function NuevoVehiculo() {
 
         {/* Espacio para el botón */}
         <div className="h-4" />
-      </form>
+      </div>
 
       {/* Botón guardar (fijo al fondo) */}
       <div className="p-4 bg-white border-t border-gray-200">
         <button
-          type="submit"
+          type="button"
           onClick={manejarGuardar}
           disabled={guardando}
           className="w-full bg-green-600 hover:bg-green-700 disabled:bg-gray-400 text-white font-bold py-4 px-6 rounded-xl text-lg"
